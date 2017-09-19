@@ -13,7 +13,7 @@ In addition to the base functionality of SWupdate, this fork has the following f
 ## Future Functionality
 The development of this fork will focus on the following issues, moving forward:
   - Individual files do not need to be put in existing directories
-  - Failed updates integrate with UBoot to better recover (see below)
+  - Failed updates integrate with UBoot to better recover (see next)
   - True power-off safety (the current system is not, despite claims)
   - Move and copy handlers
 
