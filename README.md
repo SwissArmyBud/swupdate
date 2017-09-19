@@ -1,3 +1,26 @@
+# Overview
+[SWupdate](https://sbabic.github.io/swupdate/) is a program developed by [DENX](http://denx.de/en/News/WebHome) to assist with the orderly upgrade of embedded Linux systems. SWupdate can handle full image-to-partition functions, as well as handling individual files, running scripts, setting boot parameters, and running its own upgrade server if needed.
+
+# Details
+## Current Functionality
+In addition to the base functionality of SWupdate, this fork has the following features implimented:
+  - Individual files can be deleted
+    - "file" must be REMOVE.KEY (and included in sw-description)
+	- "path" is the path to delete, either file or directory
+	- "type" must be "remove"
+	- "device" will mount a device then delete the path on that device
+  
+## Future Functionality
+The development of this fork will focus on the following issues, moving forward:
+  - Individual files do not need to be put in existing directories
+  - Failed updates integrate with UBoot to better recover (see below)
+  - True power-off safety (the current system is not, despite claims)
+  - Move and copy handlers
+
+## Tooling
+In order to ease development and application of updates, several small tools are available. They are called [SWupdated](https://github.com/SwissArmyBud/SWupdated) (for SWupdate Daemon) and provide an update builder conforming to the SWupdate specification as well as a daemon capable of automatically finding and running updates on inserted media like USB drives.
+
+# --- ORIGINAL DOCUMENTATION BELOW ---
 <p align ="center"><img src=SWUpdate.png width=400 height=400 /></p>
 
 SWUpdate - Software Update for Embedded Systems
