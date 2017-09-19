@@ -52,6 +52,31 @@ char *sdup(const char *str) {
 	return p;
 }
 
+static char* TMPDIR = NULL;
+
+const char* get_tmpdir(void)
+{
+	if (TMPDIR != NULL) {
+		return TMPDIR;
+	}
+
+	char *env_tmpdir = getenv("TMPDIR");
+	if (env_tmpdir == NULL) {
+		TMPDIR = (char*)"/tmp/";
+		return TMPDIR;
+	}
+
+	if (env_tmpdir[strlen(env_tmpdir)] == '/') {
+		TMPDIR = env_tmpdir;
+		return TMPDIR;
+	}
+
+	if (asprintf(&TMPDIR, "%s/", env_tmpdir) == -1) {
+		TMPDIR = (char*)"/tmp/";
+	}
+	return TMPDIR;
+}
+
 static int countargc(char *args, char **argv)
 {
 	int count = 0;
@@ -110,27 +135,6 @@ int openfileoutput(const char *filename)
 		ERROR("I cannot open %s %d\n", filename, errno);
 
 	return fdout;
-}
-
-int isDirectoryEmpty(const char *dirname)
-{
-	int n = 0;
-	struct dirent *d;
-	DIR *dir = opendir(dirname);
-
-	if (dir == NULL)
-		return 1;
-
-	while ((d = readdir(dir)) != NULL) {
-		if(++n > 2)
-			break;
-  	}
-	closedir(dir);
-
-	if (n <= 2)
-		return 1;
-
-	return 0;
 }
 
 /*

@@ -305,7 +305,9 @@ static int install_from_file(char *fname, int check)
 		pos);
 #endif
 
-	ret = parse(&swcfg, TMPDIR SW_DESCRIPTION_FILENAME);
+	char* swdescfilename = alloca(strlen(get_tmpdir())+strlen(SW_DESCRIPTION_FILENAME)+1);
+	sprintf(swdescfilename, "%s%s", get_tmpdir(), SW_DESCRIPTION_FILENAME);
+	ret = parse(&swcfg, swdescfilename);
 	if (ret) {
 		ERROR("failed to parse " SW_DESCRIPTION_FILENAME "!\n");
 		exit(1);
@@ -394,6 +396,12 @@ static int parse_image_selector(const char *selector, struct swupdate_cfg *sw)
 	return 0;
 }
 
+static void create_directory(const char* path) {
+	char* dpath = alloca(strlen(get_tmpdir())+strlen(path)+1);
+	sprintf(dpath, "%s%s", get_tmpdir(), path);
+	mkdir(dpath, 0777);
+}
+
 static void swupdate_init(struct swupdate_cfg *sw)
 {
 	/* Initialize internal tree to store configuration */
@@ -407,9 +415,9 @@ static void swupdate_init(struct swupdate_cfg *sw)
 
 
 	/* Create directories for scripts */
-	mkdir(SCRIPTS_DIR, 0777);
-	mkdir(DATASRC_DIR, 0777);
-	mkdir(DATADST_DIR, 0777);
+	create_directory(SCRIPTS_DIR_SUFFIX);
+	create_directory(DATASRC_DIR_SUFFIX);
+	create_directory(DATADST_DIR_SUFFIX);
 
 #ifdef CONFIG_MTD
 	mtd_init();
@@ -473,6 +481,11 @@ static int read_processes_settings(void *settings, void *data)
 	}
 
 	return 0;
+}
+
+static void sigterm_handler(int __attribute__ ((__unused__)) signum)
+{
+	pthread_cancel(network_daemon);
 }
 
 int main(int argc, char **argv)
@@ -599,6 +612,13 @@ int main(int argc, char **argv)
 	/* Process options with getopt */
 	while ((c = getopt_long(argc, argv, main_options,
 				long_options, NULL)) != EOF) {
+		if (optarg && *optarg == '-' && (c != 'd' && c != 'u' && c != 'w')) {
+			/* An option's value starting with '-' is not allowed except
+			 * for downloader, webserver, and suricatta doing their own
+			 * argv parsing.
+			 */
+			c = '?';
+		}
 		switch (c) {
 		case 'v':
 			loglevel = TRACELEVEL;
@@ -680,6 +700,12 @@ int main(int argc, char **argv)
 		}
 	}
 
+	if (optind < argc) {
+		/* SWUpdate has no non-option arguments, fail on them */
+		usage(argv[0]);
+		exit(1);
+	}
+
 	/*
 	 * Parameters are parsed: now performs plausibility
 	 * tests before starting processes and threads
@@ -697,6 +723,13 @@ int main(int argc, char **argv)
 		usage(argv[0]);
 		exit(1);
 	}
+
+#ifdef CONFIG_SURICATTA
+	if (opt_u && (opt_c || opt_i)) {
+		fprintf(stderr, "invalid mode combination with suricatta.\n");
+		exit(1);
+	}
+#endif
 
 	swupdate_crypto_init();
 
@@ -830,6 +863,15 @@ int main(int argc, char **argv)
 			ERROR("Post-update command execution failed.");
 		}
 	}
+
+	/*
+	 * Install a handler for SIGTERM that cancels
+	 * the network_daemon thread to allow atexit()
+	 * registered functions to run.
+	 */
+	memset(&sa, 0, sizeof(sa));
+	sa.sa_handler = sigterm_handler;
+	sigaction(SIGTERM, &sa, NULL);
 
 	/*
 	 * Go into supervisor loop

@@ -41,6 +41,7 @@
 #include "network_ipc.h"
 #include "network_interface.h"
 #include <progress.h>
+#include "generated/autoconf.h"
 
 struct progress_conn {
 	SIMPLEQ_ENTRY(progress_conn) next;
@@ -182,6 +183,11 @@ void swupdate_progress_done(const char *info)
 	pthread_mutex_unlock(&prbar->lock);
 }
 
+static void unlink_socket(void)
+{
+	unlink((char*)CONFIG_SOCKET_PROGRESS_PATH);
+}
+
 void *progress_bar_thread (void __attribute__ ((__unused__)) *data)
 {
 	int listen, connfd;
@@ -194,10 +200,15 @@ void *progress_bar_thread (void __attribute__ ((__unused__)) *data)
 	SIMPLEQ_INIT(&prbar->conns);
 
 	/* Initialize and bind to UDS */
-	listen = listener_create(SOCKET_PROGRESS_PATH, SOCK_STREAM);
+	listen = listener_create((char*)CONFIG_SOCKET_PROGRESS_PATH, SOCK_STREAM);
 	if (listen < 0 ) {
-		ERROR("Error creating IPC socket %s, exiting.", SOCKET_PROGRESS_PATH);
+		ERROR("Error creating IPC socket %s, exiting.", (char*)CONFIG_SOCKET_PROGRESS_PATH);
 		exit(2);
+	}
+
+	if (atexit(unlink_socket) != 0) {
+		TRACE("Cannot setup socket cleanup on exit, %s won't be unlinked.",
+			  (char*)CONFIG_SOCKET_PROGRESS_PATH);
 	}
 
 	do {

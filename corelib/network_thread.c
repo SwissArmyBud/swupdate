@@ -42,6 +42,7 @@
 #include "installer.h"
 #include "swupdate.h"
 #include "pctl.h"
+#include "generated/autoconf.h"
 
 #define LISTENQ	1024
 
@@ -170,6 +171,11 @@ static void empty_pipe(int fd)
 	} while (1);
 }
 
+static void unlink_socket(void)
+{
+	unlink((char*)CONFIG_SOCKET_CTRL_PATH);
+}
+
 void *network_thread (void *data)
 {
 	struct installer *instp = (struct installer *)data;
@@ -193,10 +199,15 @@ void *network_thread (void *data)
 	register_notifier(network_notifier);
 
 	/* Initialize and bind to UDS */
-	ctrllisten = listener_create(SOCKET_CTRL_PATH, SOCK_STREAM);
+	ctrllisten = listener_create((char*)CONFIG_SOCKET_CTRL_PATH, SOCK_STREAM);
 	if (ctrllisten < 0 ) {
 		TRACE("Error creating IPC sockets");
 		exit(2);
+	}
+
+	if (atexit(unlink_socket) != 0) {
+		TRACE("Cannot setup socket cleanup on exit, %s won't be unlinked.",
+			  (char*)CONFIG_SOCKET_CTRL_PATH);
 	}
 
 	do {
